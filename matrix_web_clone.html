@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Booting into the Matrix</title>
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      overflow: hidden;
+      background: black;
+      color: #00FF00;
+      font-family: Courier, monospace;
+    }
+    canvas {
+      display: block;
+    }
+  </style>
+</head>
+<body>
+  <canvas id="matrix"></canvas>
+  <script>
+    const canvas = document.getElementById('matrix');
+    const ctx = canvas.getContext('2d');
+    let width = window.innerWidth;
+    let height = window.innerHeight;
+    canvas.width = width;
+    canvas.height = height;
+
+    const green = '#00FF00';
+    const black = '#000000';
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*()[]{}<>?,./£^|';
+
+    const centerX = width / 2;
+    const centerY = height / 2;
+    ctx.textAlign = 'center';
+
+    function sleep(ms) {
+      return new Promise(resolve => setTimeout(resolve, ms));
+    }
+
+    async function typeText(text, y, delay = 40, blink = true) {
+      let typed = '';
+      let cursor = '_';
+      for (let i = 0; i < text.length; i++) {
+        typed += text[i];
+        drawText(typed + (blink ? cursor : ''), y);
+        await sleep(delay);
+      }
+      if (blink) {
+        for (let i = 0; i < 6; i++) {
+          drawText(typed + cursor, y);
+          await sleep(300);
+          drawText(typed + ' ', y);
+          await sleep(300);
+        }
+      } else {
+        drawText(typed, y);
+      }
+    }
+
+    function drawText(text, y) {
+      ctx.fillStyle = black;
+      ctx.fillRect(0, 0, width, height);
+      ctx.fillStyle = green;
+      ctx.font = '36px Courier';
+      ctx.fillText(text, centerX, y);
+    }
+
+    async function showIntro() {
+      const lines = [
+  "BOOT SEQUENCE INITIATED . . .",
+  "CONNECTING TO MAINFRAME",
+  "LINK ESTABLISHED",
+  "ACCESS GRANTED"
+];
+      const spacing = 50;
+      for (let i = 0; i < lines.length; i++) {
+        const delay = i === 0 ? 40 : 20;
+        await typeText(lines[i], centerY - 50 + i * spacing, delay);
+      }
+      await sleep(800);
+    }
+
+    class Stream {
+      constructor() {
+        this.fontSize = Math.floor(Math.random() * 10) + 20;
+        this.x = Math.floor(Math.random() * (width / this.fontSize)) * this.fontSize;
+        this.y = Math.floor(Math.random() * -height);
+        this.speed = Math.random() * 6 + 1;
+        this.trailLength = Math.floor(height / (this.fontSize + 2)) + 5;
+        this.trailChars = Array.from({ length: this.trailLength }, () => randomChar());
+        this.charTimers = Array.from({ length: this.trailLength }, () => randInt(1, 8));
+        this.charTicks = Array(this.trailLength).fill(0);
+      }
+
+      update() {
+        this.y += this.speed;
+        if (this.y > height + this.trailLength * (this.fontSize + 2)) {
+          Object.assign(this, new Stream());
+        } else {
+          for (let i = 0; i < this.trailLength; i++) {
+            this.charTicks[i]++;
+            if (this.charTicks[i] >= this.charTimers[i]) {
+              this.trailChars[i] = randomChar();
+              this.charTicks[i] = 0;
+              this.charTimers[i] = randInt(1, 8);
+            }
+          }
+        }
+      }
+
+      draw(ctx) {
+        const gap = 2;
+        for (let i = 0; i < this.trailLength; i++) {
+          const fade = Math.max(40, 255 - i * 20);
+          ctx.fillStyle = `rgb(0,${fade},0)`;
+          ctx.font = `${this.fontSize}px Courier`;
+          ctx.fillText(this.trailChars[i], this.x, this.y - i * (this.fontSize + gap));
+        }
+      }
+    }
+
+    function randomChar() {
+      return chars[Math.floor(Math.random() * chars.length)];
+    }
+    function randInt(min, max) {
+      return Math.floor(Math.random() * (max - min + 1)) + min;
+    }
+
+    async function main() {
+      await showIntro();
+      const streams = Array.from({ length: Math.floor(width / 20) }, () => new Stream());
+
+      let exitTriggered = false;
+      window.addEventListener('click', () => {
+        exitTriggered = true;
+      });
+
+      async function animate() {
+        if (exitTriggered) {
+          ctx.fillStyle = black;
+          ctx.fillRect(0, 0, width, height);
+          await typeText("CONNECTION TERMINATED", centerY);
+          setTimeout(() => {
+            window.close();
+          }, 2000);
+          return;
+        }
+
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.25)';
+        ctx.fillRect(0, 0, width, height);
+
+        for (let stream of streams) {
+          stream.update();
+          stream.draw(ctx);
+        }
+
+        requestAnimationFrame(animate);
+      }
+      animate();
+    }
+
+    main();
+  </script>
+</body>
+</html>
